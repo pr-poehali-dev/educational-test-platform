@@ -282,6 +282,123 @@ function ProfilePage({ role }: { role: Role }) {
     { icon: "Flame", label: "Серия побед", color: "from-orange-500 to-red-600" },
   ];
 
+  const [editing, setEditing] = useState(false);
+  const [profile, setProfile] = useState({
+    firstName: role === "student" ? "Алексей" : "Анна",
+    lastName: role === "student" ? "Смирнов" : "Ивановна",
+    grade: "10",
+    gradeLetter: "А",
+    photo: "",
+  });
+  const [draft, setDraft] = useState(profile);
+
+  const initials = `${draft.firstName[0] ?? ""}${draft.lastName[0] ?? ""}`.toUpperCase();
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setDraft((d) => ({ ...d, photo: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = () => {
+    setProfile(draft);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="max-w-lg mx-auto animate-fade-in space-y-5">
+        <div className="flex items-center gap-3 mb-2">
+          <button onClick={() => { setDraft(profile); setEditing(false); }} className="glass border border-white/60 p-2 rounded-xl hover:bg-white/60 transition">
+            <Icon name="ArrowLeft" size={18} className="text-foreground/70" />
+          </button>
+          <h2 className="font-unbounded font-bold text-xl text-gradient">Редактировать профиль</h2>
+        </div>
+
+        <div className="glass rounded-3xl p-8 border border-white/60 space-y-6">
+          {/* Photo */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-xl">
+                {draft.photo
+                  ? <img src={draft.photo} alt="avatar" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full gradient-primary flex items-center justify-center">
+                      <span className="text-white font-bold text-3xl">{initials}</span>
+                    </div>
+                }
+              </div>
+              <label className="absolute -bottom-2 -right-2 w-8 h-8 gradient-warm rounded-xl flex items-center justify-center cursor-pointer shadow-lg hover:opacity-90 transition">
+                <Icon name="Camera" size={14} className="text-white" />
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">Нажмите на камеру, чтобы загрузить фото</p>
+          </div>
+
+          {/* Fields */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Имя</label>
+              <input
+                value={draft.firstName}
+                onChange={(e) => setDraft((d) => ({ ...d, firstName: e.target.value }))}
+                className="w-full bg-white/60 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Фамилия</label>
+              <input
+                value={draft.lastName}
+                onChange={(e) => setDraft((d) => ({ ...d, lastName: e.target.value }))}
+                className="w-full bg-white/60 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 transition"
+              />
+            </div>
+          </div>
+
+          {role === "student" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Класс</label>
+                <select
+                  value={draft.grade}
+                  onChange={(e) => setDraft((d) => ({ ...d, grade: e.target.value }))}
+                  className="w-full bg-white/60 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 transition"
+                >
+                  {Array.from({ length: 11 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={String(n)}>{n} класс</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Буква класса</label>
+                <select
+                  value={draft.gradeLetter}
+                  onChange={(e) => setDraft((d) => ({ ...d, gradeLetter: e.target.value }))}
+                  className="w-full bg-white/60 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 transition"
+                >
+                  {"АБВГДЕЖЗИКЛМНОПРСТУФ".split("").map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={handleSave} className="flex-1 gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg">
+              Сохранить
+            </button>
+            <button onClick={() => { setDraft(profile); setEditing(false); }} className="flex-1 glass border border-white/60 text-foreground/70 font-semibold py-3 rounded-xl text-sm hover:bg-white/60 transition">
+              Отмена
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <h2 className="font-unbounded font-bold text-2xl text-gradient">Личный кабинет</h2>
@@ -289,17 +406,24 @@ function ProfilePage({ role }: { role: Role }) {
       <div className="grid md:grid-cols-3 gap-6">
         {/* Profile card */}
         <div className="md:col-span-1 glass rounded-3xl p-6 border border-white/60 text-center card-hover">
-          <div className="w-24 h-24 gradient-primary rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
-            <span className="text-white font-bold text-3xl">А</span>
+          <div className="w-24 h-24 rounded-3xl overflow-hidden mx-auto mb-4 shadow-xl">
+            {profile.photo
+              ? <img src={profile.photo} alt="avatar" className="w-full h-full object-cover" />
+              : <div className="w-full h-full gradient-primary flex items-center justify-center">
+                  <span className="text-white font-bold text-3xl">{`${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase()}</span>
+                </div>
+            }
           </div>
-          <h3 className="font-bold text-lg">{role === "student" ? "Алексей Смирнов" : "Анна Ивановна"}</h3>
-          <p className="text-muted-foreground text-sm mt-1">{role === "student" ? "10-А класс · Ученик" : "Учитель математики"}</p>
+          <h3 className="font-bold text-lg">{profile.firstName} {profile.lastName}</h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            {role === "student" ? `${profile.grade}-${profile.gradeLetter} класс · Ученик` : "Учитель математики"}
+          </p>
           <div className="mt-4 flex justify-center">
             <span className="bg-violet-100 text-violet-700 text-xs font-semibold px-4 py-2 rounded-full">
               {role === "student" ? "🏆 Место #4 в рейтинге" : "⭐ Старший учитель"}
             </span>
           </div>
-          <button className="mt-5 w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg">
+          <button onClick={() => { setDraft(profile); setEditing(true); }} className="mt-5 w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg">
             Редактировать профиль
           </button>
         </div>
