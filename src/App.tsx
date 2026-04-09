@@ -106,12 +106,12 @@ export default function App() {
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b border-white/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <button onClick={() => setPage("home")} className="flex items-center gap-3 hover:opacity-80 transition">
             <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center shadow-lg">
               <Icon name="GraduationCap" size={18} className="text-white" />
             </div>
             <span className="font-unbounded font-bold text-lg text-gradient hidden sm:block">EduPulse</span>
-          </div>
+          </button>
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1">
