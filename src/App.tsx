@@ -86,6 +86,7 @@ export default function App() {
   const [role, setRole] = useState<Role>("student");
   const [showNotif, setShowNotif] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const unreadCount = NOTIFICATIONS.filter((n) => n.unread).length;
 
@@ -182,9 +183,48 @@ export default function App() {
               )}
             </div>
 
-            {/* Avatar */}
-            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center cursor-pointer hover:opacity-90 transition shadow-lg">
-              <span className="text-white font-bold text-sm">АС</span>
+            {/* Avatar + User Menu */}
+            <div className="relative">
+              <button
+                onClick={() => { setShowUserMenu(!showUserMenu); setShowNotif(false); }}
+                className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center hover:opacity-90 transition shadow-lg"
+              >
+                <span className="text-white font-bold text-sm">АС</span>
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute right-0 top-12 w-56 glass rounded-2xl shadow-2xl overflow-hidden animate-scale-in z-50 border border-white/60">
+                  <div className="p-4 border-b border-white/40">
+                    <p className="font-semibold text-sm">{role === "student" ? "Алексей Смирнов" : "Анна Ивановна"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{role === "student" ? "10-А класс · Ученик" : "Учитель"}</p>
+                  </div>
+                  <div className="p-2">
+                    {[
+                      { label: "Личный кабинет", icon: "User", action: () => { setPage("profile"); setShowUserMenu(false); } },
+                      { label: "Настройки", icon: "Settings", action: () => setShowUserMenu(false) },
+                      { label: "Помощь", icon: "HelpCircle", action: () => setShowUserMenu(false) },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={item.action}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-white/60 transition-colors text-left"
+                      >
+                        <Icon name={item.icon} size={16} className="text-muted-foreground" />
+                        {item.label}
+                      </button>
+                    ))}
+                    <div className="border-t border-white/40 mt-1 pt-1">
+                      <button
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors text-red-500 text-left"
+                      >
+                        <Icon name="LogOut" size={16} />
+                        Выйти
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mobile menu */}
