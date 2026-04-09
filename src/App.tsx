@@ -92,11 +92,20 @@ function loadProfile(): Profile {
   } catch { return DEFAULT_PROFILE; }
 }
 
+type TestResult = { testId: number; title: string; subject: string; score: number; date: string; grade: string };
+
 export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [role, setRole] = useState<Role>("student");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [profile, setProfile] = useState<Profile>(loadProfile);
+  const [completedIds, setCompletedIds] = useState<Set<number>>(
+    () => new Set(TESTS.filter((t) => t.status === "done").map((t) => t.id))
+  );
+  const [testResults, setTestResults] = useState<TestResult[]>(
+    RESULTS.map((r, i) => ({ testId: i + 3, title: r.test, subject: r.subject, score: r.score, date: r.date, grade: r.grade }))
+  );
+  const [initialFilter, setInitialFilter] = useState<"all" | "new" | "progress" | "done">("all");
 
   const saveProfile = (p: Profile) => {
     setProfile(p);
@@ -104,6 +113,23 @@ export default function App() {
   };
 
   const avatarInitials = `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase();
+
+  const avgGrade = testResults.length
+    ? (testResults.reduce((sum, r) => sum + Number(r.grade), 0) / testResults.length).toFixed(1)
+    : "—";
+
+  const completedCount = completedIds.size;
+  const activeCount = TESTS.filter(t => !completedIds.has(t.id)).length;
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-usermenu]")) setShowUserMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showUserMenu]);
 
   return (
     <div className="min-h-screen gradient-bg dot-bg">
@@ -118,7 +144,7 @@ export default function App() {
           </button>
 
           {/* Avatar + User Menu */}
-          <div className="relative">
+          <div className="relative" data-usermenu>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="w-10 h-10 gradient-primary rounded-xl overflow-hidden flex items-center justify-center hover:opacity-90 transition shadow-lg"
@@ -169,10 +195,10 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {page === "home" && <HomePage setPage={setPage} role={role} profile={profile} />}
-        {page === "profile" && <ProfilePage role={role} profile={profile} onSave={saveProfile} />}
-        {page === "tests" && <TestsPage />}
-        {page === "results" && <ResultsPage />}
+        {page === "home" && <HomePage setPage={setPage} role={role} profile={profile} completedCount={completedCount} avgGrade={avgGrade} activeCount={activeCount} setInitialFilter={setInitialFilter} />}
+        {page === "profile" && <ProfilePage role={role} profile={profile} onSave={saveProfile} setPage={setPage} />}
+        {page === "tests" && <TestsPage completedIds={completedIds} setCompletedIds={setCompletedIds} setTestResults={setTestResults} initialFilter={initialFilter} setInitialFilter={setInitialFilter} />}
+        {page === "results" && <ResultsPage testResults={testResults} />}
         {page === "subjects" && <SubjectsPage />}
         {page === "rating" && <RatingPage />}
         {page === "manage" && <ManagePage />}
@@ -182,20 +208,37 @@ export default function App() {
 }
 
 /* ───── HOME ───── */
-function HomePage({ setPage, role, profile }: { setPage: (p: Page) => void; role: Role; profile: Profile }) {
-  const stats = role === "student"
-    ? [
-        { label: "Пройдено тестов", value: "24", icon: "ClipboardCheck", color: "from-violet-500 to-purple-600" },
-        { label: "Средний балл", value: "82%", icon: "Star", color: "from-pink-500 to-rose-600" },
-        { label: "Место в рейтинге", value: "#4", icon: "Trophy", color: "from-yellow-400 to-orange-500" },
-        { label: "Активных предметов", value: "6", icon: "BookOpen", color: "from-cyan-500 to-blue-600" },
-      ]
-    : [
-        { label: "Всего учеников", value: "128", icon: "Users", color: "from-violet-500 to-purple-600" },
-        { label: "Создано тестов", value: "47", icon: "ClipboardList", color: "from-pink-500 to-rose-600" },
-        { label: "Активных тестов", value: "12", icon: "Play", color: "from-green-500 to-emerald-600" },
-        { label: "Ожидают проверки", value: "8", icon: "Clock", color: "from-cyan-500 to-blue-600" },
-      ];
+function HomePage({ setPage, role, profile, completedCount, avgGrade, activeCount, setInitialFilter }: {
+  setPage: (p: Page) => void; role: Role; profile: Profile;
+  completedCount: number; avgGrade: string; activeCount: number;
+  setInitialFilter: (f: "all" | "new" | "progress" | "done") => void;
+}) {
+  const studentStats = [
+    {
+      label: "Пройдено тестов", value: String(completedCount), icon: "ClipboardCheck",
+      color: "from-violet-500 to-purple-600",
+      onClick: () => { setInitialFilter("done"); setPage("tests"); }
+    },
+    {
+      label: "Средний балл", value: avgGrade, icon: "Star",
+      color: "from-pink-500 to-rose-600",
+      onClick: () => setPage("results")
+    },
+    {
+      label: "Активных тестов", value: String(activeCount), icon: "ClipboardList",
+      color: "from-cyan-500 to-blue-600",
+      onClick: () => { setInitialFilter("new"); setPage("tests"); }
+    },
+  ];
+
+  const teacherStats = [
+    { label: "Всего учеников", value: "128", icon: "Users", color: "from-violet-500 to-purple-600", onClick: () => {} },
+    { label: "Создано тестов", value: "47", icon: "ClipboardList", color: "from-pink-500 to-rose-600", onClick: () => {} },
+    { label: "Активных тестов", value: "12", icon: "Play", color: "from-green-500 to-emerald-600", onClick: () => {} },
+    { label: "Ожидают проверки", value: "8", icon: "Clock", color: "from-cyan-500 to-blue-600", onClick: () => {} },
+  ];
+
+  const stats = role === "student" ? studentStats : teacherStats;
 
   return (
     <div className="space-y-8">
@@ -210,36 +253,40 @@ function HomePage({ setPage, role, profile }: { setPage: (p: Page) => void; role
           </h1>
           <p className="text-white/80 max-w-md text-sm md:text-base mb-6">
             {role === "student"
-              ? `${profile.grade}-${profile.gradeLetter} класс · У вас 2 новых теста и обновлённый рейтинг!`
+              ? `${profile.grade}-${profile.gradeLetter} класс · У вас ${activeCount} активных тестов`
               : "12 учеников сдали тесты сегодня. Проверьте результаты в разделе управления."}
           </p>
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => setPage(role === "student" ? "tests" : "manage")}
+              onClick={() => { setInitialFilter("new"); setPage(role === "student" ? "tests" : "manage"); }}
               className="bg-white text-violet-700 font-semibold px-6 py-3 rounded-xl hover:bg-white/90 transition-all text-sm shadow-lg"
             >
               {role === "student" ? "Начать тест" : "Управление тестами"}
             </button>
             <button
-              onClick={() => setPage("rating")}
+              onClick={() => setPage("results")}
               className="bg-white/20 text-white font-semibold px-6 py-3 rounded-xl hover:bg-white/30 transition-all text-sm border border-white/30"
             >
-              Смотреть рейтинг
+              Мои результаты
             </button>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-${role === "student" ? "3" : "2 md:grid-cols-4"} gap-4`}>
         {stats.map((s, i) => (
-          <div key={i} className={`animate-fade-in stagger-${i + 1} glass rounded-2xl p-5 card-hover border border-white/60`}>
+          <button
+            key={i}
+            onClick={s.onClick}
+            className={`animate-fade-in stagger-${i + 1} glass rounded-2xl p-5 card-hover border border-white/60 text-left`}
+          >
             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-3 shadow-lg`}>
               <Icon name={s.icon} size={18} className="text-white" />
             </div>
             <p className="font-unbounded font-bold text-2xl text-foreground">{s.value}</p>
             <p className="text-muted-foreground text-xs mt-1 font-medium">{s.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -248,21 +295,29 @@ function HomePage({ setPage, role, profile }: { setPage: (p: Page) => void; role
         <h2 className="font-unbounded font-bold text-lg mb-4 text-gradient">Быстрый доступ</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
-            { page: "subjects" as Page, label: "Предметы", icon: "BookOpen", desc: "6 активных предметов", color: "from-violet-500 to-purple-600" },
-            { page: "tests" as Page, label: "Мои тесты", icon: "ClipboardList", desc: "2 новых теста", color: "from-cyan-500 to-blue-600" },
-            { page: "results" as Page, label: "Результаты", icon: "BarChart3", desc: "Последний: 95%", color: "from-pink-500 to-rose-600" },
+            { page: "subjects" as Page, label: "Предметы", icon: "BookOpen", desc: "6 активных предметов", color: "from-violet-500 to-purple-600", filter: null },
+            { page: "tests" as Page, label: "Мои тесты", icon: "ClipboardList", desc: `${activeCount} активных тестов`, color: "from-cyan-500 to-blue-600", filter: "new" as const },
+            { page: "results" as Page, label: "Результаты", icon: "BarChart3", desc: `Средний балл: ${avgGrade}`, color: "from-pink-500 to-rose-600", filter: null },
           ].map((item, i) => (
-            <button
-              key={i}
-              onClick={() => setPage(item.page)}
-              className={`animate-fade-in stagger-${i + 3} glass rounded-2xl p-5 card-hover border border-white/60 text-left group`}
-            >
-              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
-                <Icon name={item.icon} size={22} className="text-white" />
-              </div>
-              <p className="font-semibold text-sm text-foreground">{item.label}</p>
-              <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
-            </button>
+            <div key={i} className={`animate-fade-in stagger-${i + 3} glass rounded-2xl p-5 border border-white/60 group relative`}>
+              <button
+                onClick={() => { if (item.filter) setInitialFilter(item.filter); setPage(item.page); }}
+                className="w-full text-left card-hover"
+              >
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <Icon name={item.icon} size={22} className="text-white" />
+                </div>
+                <p className="font-semibold text-sm text-foreground">{item.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+              </button>
+              <button
+                onClick={() => setPage("profile")}
+                className="absolute top-3 right-3 w-7 h-7 glass border border-white/60 rounded-lg flex items-center justify-center hover:bg-white/70 transition opacity-0 group-hover:opacity-100"
+                title="Редактировать"
+              >
+                <Icon name="Pencil" size={12} className="text-violet-500" />
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -297,7 +352,7 @@ function HomePage({ setPage, role, profile }: { setPage: (p: Page) => void; role
 }
 
 /* ───── PROFILE ───── */
-function ProfilePage({ role, profile, onSave }: { role: Role; profile: Profile; onSave: (p: Profile) => void }) {
+function ProfilePage({ role, profile, onSave, setPage }: { role: Role; profile: Profile; onSave: (p: Profile) => void; setPage: (p: Page) => void }) {
   const achievements = [
     { icon: "Star", label: "Отличник", color: "from-yellow-400 to-orange-500" },
     { icon: "Zap", label: "Быстрый старт", color: "from-cyan-500 to-blue-600" },
@@ -514,12 +569,15 @@ function ProfilePage({ role, profile, onSave }: { role: Role; profile: Profile; 
 }
 
 /* ───── TESTS ───── */
-function TestsPage() {
-  const [filter, setFilter] = useState<"all" | "new" | "progress" | "done">("all");
+function TestsPage({ completedIds, setCompletedIds, setTestResults, initialFilter, setInitialFilter }: {
+  completedIds: Set<number>;
+  setCompletedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
+  setTestResults: React.Dispatch<React.SetStateAction<TestResult[]>>;
+  initialFilter: "all" | "new" | "progress" | "done";
+  setInitialFilter: (f: "all" | "new" | "progress" | "done") => void;
+}) {
+  const [filter, setFilter] = useState<"all" | "new" | "progress" | "done">(initialFilter);
   const [activeTest, setActiveTest] = useState<typeof TESTS[0] | null>(null);
-  const [completedIds, setCompletedIds] = useState<Set<number>>(
-    () => new Set(TESTS.filter((t) => t.status === "done").map((t) => t.id))
-  );
 
   const isDone = (id: number) => completedIds.has(id);
 
@@ -532,8 +590,12 @@ function TestsPage() {
       <TestRunPage
         test={activeTest}
         onBack={() => setActiveTest(null)}
-        onComplete={() => {
+        onComplete={(score, grade) => {
           setCompletedIds((prev) => new Set([...prev, activeTest.id]));
+          const today = new Date();
+          const dateStr = `${today.getDate()} ${["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"][today.getMonth()]}`;
+          setTestResults(prev => [...prev, { testId: activeTest.id, title: activeTest.title, subject: activeTest.subject, score, date: dateStr, grade }]);
+          setInitialFilter("all");
           setActiveTest(null);
         }}
       />
@@ -604,7 +666,7 @@ function TestsPage() {
 }
 
 /* ───── TEST RUN ───── */
-function TestRunPage({ test, onBack, onComplete }: { test: typeof TESTS[0]; onBack: () => void; onComplete: () => void }) {
+function TestRunPage({ test, onBack, onComplete }: { test: typeof TESTS[0]; onBack: () => void; onComplete: (score: number, grade: string) => void }) {
   const questions = TEST_QUESTIONS[test.id] ?? [];
   const totalTime = parseInt(test.time) * 60;
 
@@ -730,7 +792,7 @@ function TestRunPage({ test, onBack, onComplete }: { test: typeof TESTS[0]; onBa
             </div>
 
             <button
-              onClick={onComplete}
+              onClick={() => onComplete(score, grade)}
               className="w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg"
             >
               Вернуться к тестам
@@ -856,17 +918,23 @@ function TestRunPage({ test, onBack, onComplete }: { test: typeof TESTS[0]; onBa
 }
 
 /* ───── RESULTS ───── */
-function ResultsPage() {
+function ResultsPage({ testResults }: { testResults: TestResult[] }) {
+  const avgGrade = testResults.length
+    ? (testResults.reduce((sum, r) => sum + Number(r.grade), 0) / testResults.length).toFixed(1)
+    : "—";
+  const best = testResults.length ? Math.max(...testResults.map(r => r.score)) : 0;
+  const fives = testResults.filter(r => r.grade === "5").length;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <h2 className="font-unbounded font-bold text-2xl text-gradient">Мои результаты</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Всего тестов", value: "24", icon: "ClipboardList", color: "from-violet-500 to-purple-600" },
-          { label: "Средний балл", value: "82%", icon: "TrendingUp", color: "from-pink-500 to-rose-600" },
-          { label: "Лучший результат", value: "98%", icon: "Award", color: "from-green-500 to-emerald-600" },
-          { label: "Пятёрок", value: "12", icon: "Star", color: "from-yellow-400 to-orange-500" },
+          { label: "Всего тестов", value: String(testResults.length), icon: "ClipboardList", color: "from-violet-500 to-purple-600" },
+          { label: "Средний балл", value: avgGrade, icon: "TrendingUp", color: "from-pink-500 to-rose-600" },
+          { label: "Лучший результат", value: best ? `${best}%` : "—", icon: "Award", color: "from-green-500 to-emerald-600" },
+          { label: "Пятёрок", value: String(fives), icon: "Star", color: "from-yellow-400 to-orange-500" },
         ].map((s, i) => (
           <div key={i} className={`animate-fade-in stagger-${i + 1} glass rounded-2xl p-5 border border-white/60 card-hover text-center`}>
             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center mx-auto mb-3 shadow-lg`}>
@@ -882,8 +950,11 @@ function ResultsPage() {
         <div className="p-6 border-b border-white/40">
           <h3 className="font-semibold">История результатов</h3>
         </div>
+        {testResults.length === 0 && (
+          <div className="p-10 text-center text-muted-foreground text-sm">Пройдите первый тест, чтобы увидеть результаты</div>
+        )}
         <div className="divide-y divide-white/30">
-          {RESULTS.map((r, i) => {
+          {[...testResults].reverse().map((r, i) => {
             const pct = r.score;
             const color = pct >= 90 ? "from-green-500 to-emerald-600" : pct >= 70 ? "from-cyan-500 to-blue-600" : "from-orange-500 to-red-500";
             return (
@@ -893,12 +964,12 @@ function ResultsPage() {
                     {r.grade}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">{r.test}</p>
+                    <p className="font-semibold text-sm">{r.title}</p>
                     <p className="text-xs text-muted-foreground">{r.subject} · {r.date}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-lg">{r.score}<span className="text-muted-foreground text-sm font-normal">/{r.max}</span></p>
+                  <p className="font-bold text-lg">{r.score}<span className="text-muted-foreground text-sm font-normal">/100</span></p>
                   <div className="w-24 h-2 bg-muted rounded-full overflow-hidden mt-1">
                     <div className={`h-full bg-gradient-to-r ${color} rounded-full`} style={{ width: `${pct}%` }} />
                   </div>
