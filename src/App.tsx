@@ -451,10 +451,27 @@ function ProfilePage({ role }: { role: Role }) {
 function TestsPage() {
   const [filter, setFilter] = useState<"all" | "new" | "progress" | "done">("all");
   const [activeTest, setActiveTest] = useState<typeof TESTS[0] | null>(null);
-  const filtered = filter === "all" ? TESTS : TESTS.filter((t) => t.status === filter);
+  const [completedIds, setCompletedIds] = useState<Set<number>>(
+    () => new Set(TESTS.filter((t) => t.status === "done").map((t) => t.id))
+  );
+
+  const isDone = (id: number) => completedIds.has(id);
+
+  const filtered = filter === "all" ? TESTS : TESTS.filter((t) =>
+    filter === "done" ? isDone(t.id) : filter === "new" ? !isDone(t.id) && t.status === "new" : !isDone(t.id) && t.status === filter
+  );
 
   if (activeTest) {
-    return <TestRunPage test={activeTest} onBack={() => setActiveTest(null)} />;
+    return (
+      <TestRunPage
+        test={activeTest}
+        onBack={() => setActiveTest(null)}
+        onComplete={() => {
+          setCompletedIds((prev) => new Set([...prev, activeTest.id]));
+          setActiveTest(null);
+        }}
+      />
+    );
   }
 
   return (
@@ -504,10 +521,10 @@ function TestsPage() {
             </div>
             <div className="mt-5 flex gap-3">
               <button
-                onClick={() => test.status !== "done" && setActiveTest(test)}
-                className={`gradient-primary text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-lg ${test.status === "done" ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"}`}
+                onClick={() => !isDone(test.id) && setActiveTest(test)}
+                className={`gradient-primary text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-lg ${isDone(test.id) ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"}`}
               >
-                {test.status === "done" ? "Завершён" : test.status === "progress" ? "Продолжить" : "Начать тест"}
+                {isDone(test.id) ? "✓ Завершён" : test.status === "progress" ? "Продолжить" : "Начать тест"}
               </button>
               <button className="glass border border-white/60 text-foreground/70 font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-white/60 transition">
                 Подробнее
@@ -521,7 +538,7 @@ function TestsPage() {
 }
 
 /* ───── TEST RUN ───── */
-function TestRunPage({ test, onBack }: { test: typeof TESTS[0]; onBack: () => void }) {
+function TestRunPage({ test, onBack, onComplete }: { test: typeof TESTS[0]; onBack: () => void; onComplete: () => void }) {
   const questions = TEST_QUESTIONS[test.id] ?? [];
   const totalTime = parseInt(test.time) * 60;
 
@@ -647,7 +664,7 @@ function TestRunPage({ test, onBack }: { test: typeof TESTS[0]; onBack: () => vo
             </div>
 
             <button
-              onClick={onBack}
+              onClick={onComplete}
               className="w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg"
             >
               Вернуться к тестам
