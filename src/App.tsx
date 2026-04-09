@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 
 type Page = "home" | "profile" | "tests" | "results" | "subjects" | "rating" | "manage";
@@ -46,6 +46,39 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   new: { label: "Новый", color: "bg-violet-100 text-violet-700" },
   progress: { label: "В процессе", color: "bg-cyan-100 text-cyan-700" },
   done: { label: "Завершён", color: "bg-green-100 text-green-700" },
+};
+
+type Question = { q: string; options: string[]; correct: number };
+
+const TEST_QUESTIONS: Record<number, Question[]> = {
+  1: [
+    { q: "Решите уравнение: x² - 5x + 6 = 0", options: ["x = 2, x = 3", "x = -2, x = -3", "x = 1, x = 6", "x = 2, x = -3"], correct: 0 },
+    { q: "Чему равно значение выражения 2³ + 3²?", options: ["13", "17", "15", "19"], correct: 1 },
+    { q: "Найдите НОД чисел 36 и 48", options: ["6", "12", "18", "24"], correct: 1 },
+    { q: "Угол треугольника равен 40° и 70°. Чему равен третий угол?", options: ["60°", "70°", "80°", "90°"], correct: 1 },
+    { q: "Вычислите: log₂(32)", options: ["4", "5", "6", "8"], correct: 1 },
+  ],
+  2: [
+    { q: "Первый закон Ньютона гласит:", options: ["F = ma", "Тело сохраняет состояние покоя или равномерного движения, если на него не действуют силы", "Сила действия равна силе противодействия", "Работа равна произведению силы на путь"], correct: 1 },
+    { q: "Единица измерения силы в системе СИ:", options: ["Джоуль", "Ватт", "Ньютон", "Паскаль"], correct: 2 },
+    { q: "Ускорение свободного падения на Земле равно:", options: ["8,9 м/с²", "9,8 м/с²", "10,8 м/с²", "11 м/с²"], correct: 1 },
+    { q: "Какая из формул выражает второй закон Ньютона?", options: ["E = mc²", "F = ma", "P = mv", "A = Fs"], correct: 1 },
+    { q: "Скорость света в вакууме приблизительно равна:", options: ["3 × 10⁶ м/с", "3 × 10⁸ м/с", "3 × 10¹⁰ м/с", "3 × 10⁴ м/с"], correct: 1 },
+  ],
+  3: [
+    { q: "В каком году началась Вторая мировая война?", options: ["1937", "1938", "1939", "1940"], correct: 2 },
+    { q: "Операция «Барбаросса» — это:", options: ["Высадка союзников в Нормандии", "Немецкий план нападения на СССР", "Битва за Сталинград", "Освобождение Берлина"], correct: 1 },
+    { q: "В каком году завершилась Вторая мировая война?", options: ["1944", "1945", "1946", "1947"], correct: 1 },
+    { q: "Какой город был столицей Третьего рейха?", options: ["Мюнхен", "Вена", "Берлин", "Гамбург"], correct: 2 },
+    { q: "Конференция в Ялте проходила в:", options: ["1943", "1944", "1945", "1946"], correct: 2 },
+  ],
+  4: [
+    { q: "Что является структурной и функциональной единицей живого?", options: ["Орган", "Ткань", "Клетка", "Молекула"], correct: 2 },
+    { q: "Где в клетке происходит синтез белка?", options: ["Митохондрии", "Рибосомы", "Ядро", "Вакуоль"], correct: 1 },
+    { q: "Какой органоид является «энергетической станцией» клетки?", options: ["Рибосома", "Аппарат Гольджи", "Лизосома", "Митохондрия"], correct: 3 },
+    { q: "ДНК хранится в:", options: ["Рибосомах", "Цитоплазме", "Ядре", "Митохондриях"], correct: 2 },
+    { q: "Процесс деления клетки называется:", options: ["Мейоз", "Митоз", "Метаболизм", "Фотосинтез"], correct: 1 },
+  ],
 };
 
 export default function App() {
@@ -417,7 +450,12 @@ function ProfilePage({ role }: { role: Role }) {
 /* ───── TESTS ───── */
 function TestsPage() {
   const [filter, setFilter] = useState<"all" | "new" | "progress" | "done">("all");
+  const [activeTest, setActiveTest] = useState<typeof TESTS[0] | null>(null);
   const filtered = filter === "all" ? TESTS : TESTS.filter((t) => t.status === filter);
+
+  if (activeTest) {
+    return <TestRunPage test={activeTest} onBack={() => setActiveTest(null)} />;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -465,8 +503,11 @@ function TestsPage() {
               </div>
             </div>
             <div className="mt-5 flex gap-3">
-              <button className="gradient-primary text-white font-semibold px-6 py-2.5 rounded-xl text-sm hover:opacity-90 transition shadow-lg">
-                {test.status === "done" ? "Смотреть результат" : test.status === "progress" ? "Продолжить" : "Начать тест"}
+              <button
+                onClick={() => test.status !== "done" && setActiveTest(test)}
+                className={`gradient-primary text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-lg ${test.status === "done" ? "opacity-50 cursor-not-allowed" : "hover:opacity-90"}`}
+              >
+                {test.status === "done" ? "Завершён" : test.status === "progress" ? "Продолжить" : "Начать тест"}
               </button>
               <button className="glass border border-white/60 text-foreground/70 font-semibold px-4 py-2.5 rounded-xl text-sm hover:bg-white/60 transition">
                 Подробнее
@@ -474,6 +515,258 @@ function TestsPage() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───── TEST RUN ───── */
+function TestRunPage({ test, onBack }: { test: typeof TESTS[0]; onBack: () => void }) {
+  const questions = TEST_QUESTIONS[test.id] ?? [];
+  const totalTime = parseInt(test.time) * 60;
+
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [selected, setSelected] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(totalTime);
+  const [finished, setFinished] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const finish = useCallback(() => {
+    setFinished(true);
+  }, []);
+
+  useEffect(() => {
+    if (finished) return;
+    const t = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) { clearInterval(t); finish(); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [finished, finish]);
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const timerColor = timeLeft < 60 ? "text-red-500" : timeLeft < 180 ? "text-orange-500" : "text-foreground";
+
+  const handleSelect = (idx: number) => {
+    if (finished) return;
+    setSelected(idx);
+  };
+
+  const handleNext = () => {
+    if (selected === null) return;
+    const newAnswers = { ...answers, [current]: selected };
+    setAnswers(newAnswers);
+    setSelected(null);
+    if (current + 1 >= questions.length) {
+      finish();
+    } else {
+      setCurrent(current + 1);
+    }
+  };
+
+  const correctCount = Object.entries(answers).filter(
+    ([qi, ans]) => questions[Number(qi)]?.correct === ans
+  ).length;
+  const score = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+  const grade = score >= 90 ? "5" : score >= 70 ? "4" : score >= 50 ? "3" : "2";
+  const gradeColor = score >= 90 ? "from-green-500 to-emerald-600" : score >= 70 ? "from-cyan-500 to-blue-600" : score >= 50 ? "from-orange-400 to-yellow-500" : "from-red-500 to-rose-600";
+
+  /* ── RESULT SCREEN ── */
+  if (finished) {
+    return (
+      <div className="max-w-2xl mx-auto animate-scale-in">
+        <div className="glass rounded-3xl border border-white/60 overflow-hidden">
+          <div className="gradient-primary p-8 text-center text-white">
+            <div className={`w-24 h-24 rounded-3xl bg-white/20 flex items-center justify-center mx-auto mb-4 shadow-xl`}>
+              <span className="font-unbounded font-bold text-5xl">{grade}</span>
+            </div>
+            <h2 className="font-unbounded font-bold text-2xl mb-1">Тест завершён!</h2>
+            <p className="text-white/80">{test.title}</p>
+          </div>
+
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="bg-white/60 rounded-2xl p-4">
+                <p className="font-unbounded font-bold text-2xl text-gradient">{score}%</p>
+                <p className="text-xs text-muted-foreground mt-1">Результат</p>
+              </div>
+              <div className="bg-white/60 rounded-2xl p-4">
+                <p className="font-unbounded font-bold text-2xl text-green-600">{correctCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">Правильных</p>
+              </div>
+              <div className="bg-white/60 rounded-2xl p-4">
+                <p className="font-unbounded font-bold text-2xl text-red-500">{questions.length - correctCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">Ошибок</p>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-muted-foreground font-medium">Правильных ответов</span>
+                <span className="font-bold">{correctCount} / {questions.length}</span>
+              </div>
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full bg-gradient-to-r ${gradeColor} rounded-full transition-all duration-1000`}
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Question breakdown */}
+            <div>
+              <p className="font-semibold text-sm mb-3">Разбор ответов</p>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {questions.map((q, i) => {
+                  const userAns = answers[i];
+                  const isCorrect = userAns === q.correct;
+                  const notAnswered = userAns === undefined;
+                  return (
+                    <div key={i} className={`flex items-start gap-3 p-3 rounded-xl text-sm ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isCorrect ? "bg-green-500" : "bg-red-500"}`}>
+                        <Icon name={isCorrect ? "Check" : "X"} size={12} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium leading-tight">{q.q}</p>
+                        {!isCorrect && (
+                          <p className="text-green-700 text-xs mt-1">
+                            Правильно: {q.options[q.correct]}
+                            {notAnswered ? " (не отвечено)" : ` · Вы ответили: ${q.options[userAns]}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={onBack}
+              className="w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg"
+            >
+              Вернуться к тестам
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const q = questions[current];
+  const progress = ((current) / questions.length) * 100;
+
+  /* ── CONFIRM EXIT ── */
+  if (showConfirm) {
+    return (
+      <div className="max-w-md mx-auto mt-20 animate-scale-in">
+        <div className="glass rounded-3xl p-8 border border-white/60 text-center shadow-2xl">
+          <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Icon name="AlertTriangle" size={28} className="text-orange-500" />
+          </div>
+          <h3 className="font-bold text-lg mb-2">Выйти из теста?</h3>
+          <p className="text-muted-foreground text-sm mb-6">Прогресс не сохранится. Вы точно хотите прервать тест?</p>
+          <div className="flex gap-3">
+            <button onClick={onBack} className="flex-1 bg-red-100 text-red-700 font-semibold py-3 rounded-xl text-sm hover:bg-red-200 transition">
+              Выйти
+            </button>
+            <button onClick={() => setShowConfirm(false)} className="flex-1 gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow">
+              Продолжить
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── QUESTION SCREEN ── */
+  return (
+    <div className="max-w-2xl mx-auto animate-fade-in">
+      {/* Header bar */}
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <button
+          onClick={() => setShowConfirm(true)}
+          className="glass border border-white/60 text-foreground/70 font-medium px-4 py-2 rounded-xl text-sm hover:bg-white/60 transition flex items-center gap-2"
+        >
+          <Icon name="ArrowLeft" size={16} />
+          Выйти
+        </button>
+        <div className="flex-1 text-center">
+          <p className="text-xs text-muted-foreground font-medium">{test.subject}</p>
+          <p className="font-semibold text-sm">{test.title}</p>
+        </div>
+        <div className={`glass border border-white/60 px-4 py-2 rounded-xl font-unbounded font-bold text-sm ${timerColor} flex items-center gap-2`}>
+          <Icon name="Clock" size={14} />
+          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div className="mb-6">
+        <div className="flex justify-between text-xs text-muted-foreground mb-2">
+          <span>Вопрос {current + 1} из {questions.length}</span>
+          <span>{Math.round(progress)}% пройдено</span>
+        </div>
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-full gradient-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="flex gap-1.5 mt-3">
+          {questions.map((_, i) => (
+            <div
+              key={i}
+              className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                i < current ? "gradient-primary" : i === current ? "bg-violet-300" : "bg-muted"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Question card */}
+      <div className="glass rounded-3xl border border-white/60 p-8 shadow-xl">
+        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center mb-5 shadow">
+          <span className="text-white font-bold text-sm">{current + 1}</span>
+        </div>
+        <h3 className="font-bold text-lg leading-snug mb-7">{q.q}</h3>
+
+        <div className="space-y-3">
+          {q.options.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => handleSelect(i)}
+              className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 text-sm font-medium flex items-center gap-3 ${
+                selected === i
+                  ? "border-violet-500 bg-violet-50 text-violet-800 shadow-lg"
+                  : "border-white/60 bg-white/40 hover:bg-white/70 hover:border-violet-300 text-foreground"
+              }`}
+            >
+              <span className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm transition-all ${
+                selected === i ? "gradient-primary text-white shadow" : "bg-muted text-muted-foreground"
+              }`}>
+                {String.fromCharCode(65 + i)}
+              </span>
+              {opt}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={handleNext}
+          disabled={selected === null}
+          className={`mt-7 w-full font-semibold py-3.5 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
+            selected !== null
+              ? "gradient-primary text-white hover:opacity-90"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+          }`}
+        >
+          {current + 1 >= questions.length ? "Завершить тест" : "Следующий вопрос"}
+          <Icon name={current + 1 >= questions.length ? "CheckCircle" : "ArrowRight"} size={16} />
+        </button>
       </div>
     </div>
   );
