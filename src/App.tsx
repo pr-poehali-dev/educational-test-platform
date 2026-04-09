@@ -81,10 +81,30 @@ const TEST_QUESTIONS: Record<number, Question[]> = {
   ],
 };
 
+type Profile = { firstName: string; lastName: string; grade: string; gradeLetter: string; photo: string };
+
+const DEFAULT_PROFILE: Profile = { firstName: "Алексей", lastName: "Смирнов", grade: "10", gradeLetter: "А", photo: "" };
+
+function loadProfile(): Profile {
+  try {
+    const raw = localStorage.getItem("edu_profile");
+    return raw ? { ...DEFAULT_PROFILE, ...JSON.parse(raw) } : DEFAULT_PROFILE;
+  } catch { return DEFAULT_PROFILE; }
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [role, setRole] = useState<Role>("student");
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [profile, setProfile] = useState<Profile>(loadProfile);
+
+  const saveProfile = (p: Profile) => {
+    setProfile(p);
+    localStorage.setItem("edu_profile", JSON.stringify(p));
+  };
+
+  const avatarInitials = `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase();
+
   return (
     <div className="min-h-screen gradient-bg dot-bg">
       {/* Header */}
@@ -101,16 +121,19 @@ export default function App() {
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center hover:opacity-90 transition shadow-lg"
+              className="w-10 h-10 gradient-primary rounded-xl overflow-hidden flex items-center justify-center hover:opacity-90 transition shadow-lg"
             >
-              <span className="text-white font-bold text-sm">АС</span>
+              {profile.photo
+                ? <img src={profile.photo} alt="avatar" className="w-full h-full object-cover" />
+                : <span className="text-white font-bold text-sm">{avatarInitials}</span>
+              }
             </button>
 
             {showUserMenu && (
               <div className="absolute right-0 top-12 w-56 glass rounded-2xl shadow-2xl overflow-hidden animate-scale-in z-50 border border-white/60">
                 <div className="p-4 border-b border-white/40">
-                  <p className="font-semibold text-sm">{role === "student" ? "Алексей Смирнов" : "Анна Ивановна"}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{role === "student" ? "10-А класс · Ученик" : "Учитель"}</p>
+                  <p className="font-semibold text-sm">{profile.firstName} {profile.lastName}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{role === "student" ? `${profile.grade}-${profile.gradeLetter} класс · Ученик` : "Учитель"}</p>
                 </div>
                 <div className="p-2">
                   {[
@@ -146,8 +169,8 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {page === "home" && <HomePage setPage={setPage} role={role} />}
-        {page === "profile" && <ProfilePage role={role} />}
+        {page === "home" && <HomePage setPage={setPage} role={role} profile={profile} />}
+        {page === "profile" && <ProfilePage role={role} profile={profile} onSave={saveProfile} />}
         {page === "tests" && <TestsPage />}
         {page === "results" && <ResultsPage />}
         {page === "subjects" && <SubjectsPage />}
@@ -159,7 +182,7 @@ export default function App() {
 }
 
 /* ───── HOME ───── */
-function HomePage({ setPage, role }: { setPage: (p: Page) => void; role: Role }) {
+function HomePage({ setPage, role, profile }: { setPage: (p: Page) => void; role: Role; profile: Profile }) {
   const stats = role === "student"
     ? [
         { label: "Пройдено тестов", value: "24", icon: "ClipboardCheck", color: "from-violet-500 to-purple-600" },
@@ -183,11 +206,11 @@ function HomePage({ setPage, role }: { setPage: (p: Page) => void; role: Role })
         <div className="relative z-10">
           <p className="text-white/70 font-medium mb-2">Добро пожаловать! 👋</p>
           <h1 className="font-unbounded text-2xl md:text-4xl font-bold mb-3 leading-tight">
-            {role === "student" ? "Алексей Смирнов" : "Анна Ивановна"}
+            {role === "student" ? `${profile.firstName} ${profile.lastName}` : "Анна Ивановна"}
           </h1>
           <p className="text-white/80 max-w-md text-sm md:text-base mb-6">
             {role === "student"
-              ? "У вас 2 новых теста и обновлённый рейтинг. Продолжайте в том же духе!"
+              ? `${profile.grade}-${profile.gradeLetter} класс · У вас 2 новых теста и обновлённый рейтинг!`
               : "12 учеников сдали тесты сегодня. Проверьте результаты в разделе управления."}
           </p>
           <div className="flex flex-wrap gap-3">
@@ -274,7 +297,7 @@ function HomePage({ setPage, role }: { setPage: (p: Page) => void; role: Role })
 }
 
 /* ───── PROFILE ───── */
-function ProfilePage({ role }: { role: Role }) {
+function ProfilePage({ role, profile, onSave }: { role: Role; profile: Profile; onSave: (p: Profile) => void }) {
   const achievements = [
     { icon: "Star", label: "Отличник", color: "from-yellow-400 to-orange-500" },
     { icon: "Zap", label: "Быстрый старт", color: "from-cyan-500 to-blue-600" },
@@ -283,13 +306,6 @@ function ProfilePage({ role }: { role: Role }) {
   ];
 
   const [editing, setEditing] = useState(false);
-  const [profile, setProfile] = useState({
-    firstName: role === "student" ? "Алексей" : "Анна",
-    lastName: role === "student" ? "Смирнов" : "Ивановна",
-    grade: "10",
-    gradeLetter: "А",
-    photo: "",
-  });
   const [draft, setDraft] = useState(profile);
 
   const initials = `${draft.firstName[0] ?? ""}${draft.lastName[0] ?? ""}`.toUpperCase();
@@ -303,7 +319,7 @@ function ProfilePage({ role }: { role: Role }) {
   };
 
   const handleSave = () => {
-    setProfile(draft);
+    onSave(draft);
     setEditing(false);
   };
 
@@ -423,7 +439,7 @@ function ProfilePage({ role }: { role: Role }) {
               {role === "student" ? "🏆 Место #4 в рейтинге" : "⭐ Старший учитель"}
             </span>
           </div>
-          <button onClick={() => { setDraft(profile); setEditing(true); }} className="mt-5 w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg">
+          <button onClick={() => { setDraft(profile); setEditing(true); }} className="mt-5 w-full gradient-primary text-white font-semibold py-3 rounded-xl text-sm hover:opacity-90 transition shadow-lg" >
             Редактировать профиль
           </button>
         </div>
