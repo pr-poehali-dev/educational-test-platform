@@ -207,12 +207,49 @@ export default function App() {
   );
 }
 
+const ALL_QUICK_ITEMS = [
+  { id: "subjects", page: "subjects" as Page, label: "Предметы", icon: "BookOpen", color: "from-violet-500 to-purple-600", filter: null as null | "new" | "done" },
+  { id: "tests", page: "tests" as Page, label: "Мои тесты", icon: "ClipboardList", color: "from-cyan-500 to-blue-600", filter: "new" as const },
+  { id: "results", page: "results" as Page, label: "Результаты", icon: "BarChart3", color: "from-pink-500 to-rose-600", filter: null },
+  { id: "rating", page: "rating" as Page, label: "Рейтинг", icon: "Trophy", color: "from-yellow-400 to-orange-500", filter: null },
+  { id: "profile", page: "profile" as Page, label: "Кабинет", icon: "User", color: "from-indigo-500 to-violet-600", filter: null },
+  { id: "manage", page: "manage" as Page, label: "Управление", icon: "Settings2", color: "from-green-500 to-emerald-600", filter: null },
+];
+
 /* ───── HOME ───── */
 function HomePage({ setPage, role, profile, completedCount, avgGrade, activeCount, setInitialFilter }: {
   setPage: (p: Page) => void; role: Role; profile: Profile;
   completedCount: number; avgGrade: string; activeCount: number;
   setInitialFilter: (f: "all" | "new" | "progress" | "done") => void;
 }) {
+  const [quickIds, setQuickIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("edu_quick") || '["subjects","tests","results"]'); }
+    catch { return ["subjects", "tests", "results"]; }
+  });
+  const [editingQuick, setEditingQuick] = useState(false);
+
+  const saveQuick = (ids: string[]) => {
+    setQuickIds(ids);
+    localStorage.setItem("edu_quick", JSON.stringify(ids));
+  };
+
+  const toggleItem = (id: string) => {
+    if (quickIds.includes(id)) {
+      if (quickIds.length <= 1) return;
+      saveQuick(quickIds.filter(q => q !== id));
+    } else {
+      saveQuick([...quickIds, id]);
+    }
+  };
+
+  const quickItems = ALL_QUICK_ITEMS.filter(i => quickIds.includes(i.id));
+
+  const getDesc = (id: string) => {
+    if (id === "tests") return `${activeCount} активных тестов`;
+    if (id === "results") return `Средний балл: ${avgGrade}`;
+    if (id === "subjects") return "6 активных предметов";
+    return "";
+  };
   const studentStats = [
     {
       label: "Пройдено тестов", value: String(completedCount), icon: "ClipboardCheck",
@@ -292,30 +329,59 @@ function HomePage({ setPage, role, profile, completedCount, avgGrade, activeCoun
 
       {/* Quick access */}
       <div>
-        <h2 className="font-unbounded font-bold text-lg mb-4 text-gradient">Быстрый доступ</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-unbounded font-bold text-lg text-gradient">Быстрый доступ</h2>
+          <button
+            onClick={() => setEditingQuick(!editingQuick)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${editingQuick ? "gradient-primary text-white shadow-lg" : "glass border border-white/60 text-foreground/70 hover:bg-white/60"}`}
+          >
+            <Icon name={editingQuick ? "Check" : "Pencil"} size={13} />
+            {editingQuick ? "Готово" : "Редактировать"}
+          </button>
+        </div>
+
+        {editingQuick && (
+          <div className="glass rounded-2xl border border-white/60 p-4 mb-4 animate-scale-in">
+            <p className="text-xs text-muted-foreground font-medium mb-3">Выберите разделы для быстрого доступа:</p>
+            <div className="flex flex-wrap gap-2">
+              {ALL_QUICK_ITEMS.map(item => {
+                const active = quickIds.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => toggleItem(item.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border ${active ? "gradient-primary text-white border-transparent shadow" : "glass border-white/60 text-foreground/70 hover:bg-white/60"}`}
+                  >
+                    <Icon name={item.icon} size={14} />
+                    {item.label}
+                    {active && <Icon name="X" size={12} className="opacity-70" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {[
-            { page: "subjects" as Page, label: "Предметы", icon: "BookOpen", desc: "6 активных предметов", color: "from-violet-500 to-purple-600", filter: null },
-            { page: "tests" as Page, label: "Мои тесты", icon: "ClipboardList", desc: `${activeCount} активных тестов`, color: "from-cyan-500 to-blue-600", filter: "new" as const },
-            { page: "results" as Page, label: "Результаты", icon: "BarChart3", desc: `Средний балл: ${avgGrade}`, color: "from-pink-500 to-rose-600", filter: null },
-          ].map((item, i) => (
-            <div key={i} className={`animate-fade-in stagger-${i + 3} glass rounded-2xl p-5 border border-white/60 group relative`}>
+          {quickItems.map((item, i) => (
+            <div key={item.id} className={`animate-fade-in stagger-${i + 1} glass rounded-2xl p-5 border ${editingQuick ? "border-violet-300/60 ring-2 ring-violet-200/40" : "border-white/60"} group relative transition-all`}>
+              {editingQuick && (
+                <button
+                  onClick={() => toggleItem(item.id)}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition z-10"
+                >
+                  <Icon name="X" size={11} className="text-white" />
+                </button>
+              )}
               <button
-                onClick={() => { if (item.filter) setInitialFilter(item.filter); setPage(item.page); }}
+                onClick={() => { if (!editingQuick) { if (item.filter) setInitialFilter(item.filter); setPage(item.page); } }}
                 className="w-full text-left card-hover"
               >
                 <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
                   <Icon name={item.icon} size={22} className="text-white" />
                 </div>
                 <p className="font-semibold text-sm text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
-              </button>
-              <button
-                onClick={() => setPage("profile")}
-                className="absolute top-3 right-3 w-7 h-7 glass border border-white/60 rounded-lg flex items-center justify-center hover:bg-white/70 transition opacity-0 group-hover:opacity-100"
-                title="Редактировать"
-              >
-                <Icon name="Pencil" size={12} className="text-violet-500" />
+                <p className="text-xs text-muted-foreground mt-1">{getDesc(item.id)}</p>
               </button>
             </div>
           ))}
